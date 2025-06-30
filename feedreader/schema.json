@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Goods",
+  "description": "List of goods",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [ "Id", "Type" ],
+    "properties": {
+      "Id": {
+        "type": "string",
+        "description": "Product id"
+      },
+      "Type": {
+        "type": "string",
+        "enum": [ "product", "set", "variant" ],
+        "description": "Product type"
+      },
+      "Suppliers": {
+        "type": "array",
+        "description": "Suppliers of good. Any supplier have specific amount of good. Sets and variants haven't suppliers'",
+        "items": {
+          "Id": {
+            "type": "string",
+            "description": "Supplier id"
+          },
+          "Quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Quantity of good from supplier"
+          },
+          "Price": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Price per unit"
+          }
+        }
+      },
+      "SubProducts": {
+
+      },
+      "Warehouses": {
+        "type": "array",
+        "description": "Warehouses where good is stored",
+        "items": {
+          "Id": {
+            "type": "string",
+            "description": "Warehouse id"
+          },
+          "Quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Quantity of good stored"
+          },
+          "Price": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Price per unit"
+          }
+        }
+      }
+    }
+  }
+}
+
