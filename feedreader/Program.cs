@@ -9,15 +9,19 @@ namespace feedreader
         {
             try
             {
-                Logger.Info("Start feed reader module");
                 const string directoryPATH = @"D:\Производственная практика 2025\inFiles";
+
+                Logger.Info("Start feed reader module");
+
                 using (FileSystemWatcher watcher = new FileSystemWatcher(directoryPATH))
                 {
                     watcher.IncludeSubdirectories = true;
                     watcher.Filter = "*.json";
                     watcher.Created += OnFileCreated;
+
                     watcher.EnableRaisingEvents = true;
                     Logger.Debug($"Watch files in \"{directoryPATH}\"");
+
                     Console.WriteLine("Press enter to exit.");
                     Console.ReadLine();
                 }
