@@ -1,4 +1,4 @@
-﻿using feedreader;
+﻿using FeedReader;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
 using NLog;
@@ -79,7 +79,7 @@ async void ProcessFilesQueue()
                 {
                     isProcessed = true;
                     logger.Debug($"Is valid: \"{filename}\".");
-                    SendData(goodsJson, filename);
+                    _ = Task.Run(() => SendData(goodsJson, filename));
                 }
                 else
                 {
@@ -87,9 +87,9 @@ async void ProcessFilesQueue()
                     logger.Warn($"Not valid: \"{filename}\".\nSchema validation errors: \n" + string.Join('\n', errors));
                 }
             }
-            catch (Exception ex)
+            catch (IOException ex)
             {
-                if (ex is IOException && attempt <= Settings.MAX_ATTEMPTS && !isProcessed)
+                if (!isProcessed && attempt <= Settings.MAX_ATTEMPTS)
                 {
                     logger.Warn($"Can't open file \"{filename}\". Try again... ({attempt})");
                     attempt++;
@@ -97,22 +97,27 @@ async void ProcessFilesQueue()
                     // Wait or file process can be blocked
                     await Task.Delay(500);
                 }
-                else if (ex is TaskCanceledException)
-                {
-                    logger.Error(ex, "File read timeout");
-                    break;
-                }
                 else
                 {
                     logger.Error(ex);
-                    break; // to next file
+                    break; // to next file in queue
                 }
-
+            }
+            catch (TaskCanceledException ex)
+            {
+                logger.Error(ex, "File read timeout");
+                break;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(ex);
+                break;
             }
         }
     }
     // when queue is empty make flag false
     processingFiles = false;
+    logger.Debug("Queue is clear after processing.");
 }
 
 async void SendData(string json, string messageName = "")
@@ -123,7 +128,7 @@ async void SendData(string json, string messageName = "")
 
         // Connection time limit
         CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
-        
+
         ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
         using IConnection connection = await factory.CreateConnectionAsync(cts.Token);
         using IChannel channel = await connection.CreateChannelAsync();

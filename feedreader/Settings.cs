@@ -1,4 +1,4 @@
-﻿namespace feedreader
+﻿namespace FeedReader
 {
     public static class Settings
     {
