@@ -10,6 +10,7 @@ Logger logger = LogManager.GetCurrentClassLogger();
 ConcurrentQueue<string> fileQueue = new();
 bool processingFiles = false; // is queue processing?
 
+
 try
 {
     using FileSystemWatcher watcher = new(Settings.DIRECTORY_PATH);
