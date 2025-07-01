@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeedReader", "feedreader\FeedReader.csproj", "{B2F9E871-7320-4460-A0F9-7DB12C89C733}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuantityCalculator", "QuantityCalculator\QuantityCalculator.csproj", "{BE8561FF-B73F-43CD-92B6-BAD877B76379}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{B2F9E871-7320-4460-A0F9-7DB12C89C733}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2F9E871-7320-4460-A0F9-7DB12C89C733}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2F9E871-7320-4460-A0F9-7DB12C89C733}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE8561FF-B73F-43CD-92B6-BAD877B76379}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE8561FF-B73F-43CD-92B6-BAD877B76379}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE8561FF-B73F-43CD-92B6-BAD877B76379}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE8561FF-B73F-43CD-92B6-BAD877B76379}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
