@@ -1,15 +1,12 @@
 ﻿using FeedReader;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
 using NLog;
 using RabbitMQ.Client;
-using System.Collections.Concurrent;
 using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
-ConcurrentQueue<string> fileQueue = new();
-bool processingFiles = false; // is queue processing?
-
 
 try
 {
@@ -23,27 +20,19 @@ try
     Console.BackgroundColor = ConsoleColor.Green;
     Console.WriteLine("> Press any key to exit.");
     Console.ResetColor();
-    _ = Console.ReadKey();
+    Console.ReadKey();
 }
 catch (Exception ex)
 {
     logger.Error(ex);
 }
 
-void OnFileCreated(object sender, FileSystemEventArgs e)
+async void OnFileCreated(object sender, FileSystemEventArgs e)
 {
     try
     {
-        // Add file to queue
-        fileQueue.Enqueue(e.FullPath);
-        logger.Debug($"File queued for processing: \"{e.Name}\".");
-
-        // Run processing if not running
-        if (!processingFiles)
-        {
-            processingFiles = true;
-            _ = Task.Run(ProcessFilesQueue);
-        }
+        logger.Debug($"Try processing file: \"{e.Name}\".");
+        await ProcessFileAsync(e.FullPath);
     }
     catch (Exception ex)
     {
@@ -51,111 +40,89 @@ void OnFileCreated(object sender, FileSystemEventArgs e)
     }
 }
 
-async void ProcessFilesQueue()
+async Task ProcessFileAsync(string path)
 {
-    while (fileQueue.TryDequeue(out string? filePath))
+    string filename = Path.GetFileName(path);
+
+    bool isProcessed = false; // is file successfully processed;
+    int attempt = 0;
+
+    while (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
     {
-        int attempt = 1;
-        bool isProcessed = false; // is file successfully opened and processed?
-
-        string filename = Path.GetFileName(filePath);
-
-        while (!isProcessed && attempt <= Settings.MAX_ATTEMPTS)
+        try
         {
-            try
+            // max time to read file
+            CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
+
+            string schemaJson = await File.ReadAllTextAsync(Settings.SCHEMA_PATH, cts.Token);
+            string productsJson = await File.ReadAllTextAsync(path, cts.Token);
+
+
+            JSchema schema = JSchema.Parse(schemaJson);
+            JArray products = JArray.Parse(productsJson);
+
+            bool isValid = products.IsValid(schema, out IList<string> errors);
+
+            if (isValid)
             {
-                // max time to read file
-                CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
-
-                string schemaJson = await File.ReadAllTextAsync(Settings.SCHEMA_PATH, cts.Token);
-                string goodsJson = await File.ReadAllTextAsync(filePath, cts.Token);
-
-
-                JSchema schema = JSchema.Parse(schemaJson);
-                JArray goods = JArray.Parse(goodsJson);
-
-                bool isValid = goods.IsValid(schema, out IList<string> errors);
-
-                if (isValid)
-                {
-                    isProcessed = true;
-                    logger.Debug($"Is valid: \"{filename}\".");
-                    _ = Task.Run(() => SendData(goodsJson, filename));
-                }
-                else
-                {
-                    isProcessed = true;
-                    logger.Warn($"Not valid: \"{filename}\".\nSchema validation errors: \n" + string.Join('\n', errors));
-                }
+                isProcessed = true;
+                logger.Debug($"Is valid: \"{filename}\".");
+                await SendMessageAsync(productsJson, filename);
             }
-            catch (IOException ex)
+            else
             {
-                if (!isProcessed && attempt <= Settings.MAX_ATTEMPTS)
-                {
-                    logger.Warn($"Can't open file \"{filename}\". Try again... ({attempt})");
-                    attempt++;
+                isProcessed = true;
+                logger.Debug($"Not valid: \"{filename}\".\nSchema validation errors: \n" + string.Join('\n', errors));
+            }
+        }
+        catch (IOException)
+        {
+            if (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
+            {
+                attempt++;
+                logger.Warn($"Can't open file \"{filename}\". Try again... ({attempt})");
 
-                    // Wait or file process can be blocked
-                    await Task.Delay(500);
-                }
-                else
-                {
-                    logger.Error(ex);
-                    break; // to next file in queue
-                }
+                // Wait or file process can be blocked
+                await Task.Delay(500);
             }
-            catch (TaskCanceledException ex)
+            else
             {
-                logger.Error(ex, "File read timeout");
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.Error(ex);
-                break;
+                throw;
             }
         }
     }
-    // when queue is empty make flag false
-    processingFiles = false;
-    logger.Debug("Queue is clear after processing.");
 }
 
-async void SendData(string json, string messageName = "")
+async Task SendMessageAsync(string json, string filename = "")
 {
-    try
+    // Connection time limit
+    CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
+
+    ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
+    using var connection = await factory.CreateConnectionAsync(cts.Token);
+    using var channel = await connection.CreateChannelAsync();
+
+    await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
+        arguments: null);
+
+    var message = new
     {
-        string queueName = "toCalc";
+        FileName = filename,
+        Content = json,
+        Timestamp = DateTime.UtcNow
+    };
 
-        // Connection time limit
-        CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
+    string messageJson = JsonConvert.SerializeObject(message);
+    byte[] body = Encoding.UTF8.GetBytes(messageJson);
 
-        ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
-        using IConnection connection = await factory.CreateConnectionAsync(cts.Token);
-        using IChannel channel = await connection.CreateChannelAsync();
+    await channel.BasicPublishAsync(exchange: string.Empty, routingKey: Settings.SEND_QUEUE, body: body);
 
-        _ = await channel.QueueDeclareAsync(queue: queueName, durable: false, exclusive: false, autoDelete: false,
-            arguments: null);
-
-        byte[] body = Encoding.UTF8.GetBytes(json);
-
-        await channel.BasicPublishAsync(exchange: string.Empty, routingKey: queueName, body: body);
-
-        if (string.IsNullOrEmpty(messageName))
-        {
-            logger.Debug("Message sent to broker");
-        }
-        else
-        {
-            logger.Debug($"\"{messageName}\" sent to broker");
-        }
+    if (string.IsNullOrEmpty(filename))
+    {
+        logger.Debug("Message sent to broker");
     }
-    catch (TaskCanceledException ex)
+    else
     {
-        logger.Error(ex, "RabbitMQ connection timeout");
-    }
-    catch (Exception ex)
-    {
-        logger.Error(ex);
+        logger.Debug($"\"{filename}\" sent to broker");
     }
 }
