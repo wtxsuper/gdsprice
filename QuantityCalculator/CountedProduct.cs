@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace QuantityCalculator
+﻿namespace QuantityCalculator
 {
     internal class CountedProduct : Product
     {
@@ -12,8 +6,8 @@ namespace QuantityCalculator
         public int SupplierQuantity { get; set; }
         public int Quantity { get; set; }
 
-        public CountedProduct(Product product) 
-        { 
+        public CountedProduct(Product product)
+        {
             Id = product.Id;
             Type = product.Type;
             SubProducts = product.SubProducts;
@@ -21,7 +15,7 @@ namespace QuantityCalculator
             Warehouses = product.Warehouses;
             WarehouseQuantity = 0;
             SupplierQuantity = 0;
-            Quantity = 0;    
+            Quantity = 0;
         }
     }
 }

@@ -57,3 +57,4 @@ TestResult.xml
 nunit-*.xml
 /.vs/gdsprice
 /.vs/ProjectEvaluation
+/feedreader/Settings.cs
