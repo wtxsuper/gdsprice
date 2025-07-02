@@ -37,50 +37,54 @@
         }
       },
       "SubProducts": {
-        "Id": {
-          "type": "string",
-          "description": "Product id"
-        },
-        "Suppliers": {
-          "type": "array",
-          "description": "Suppliers of good. Any supplier have specific amount of good. Sets and variants haven't suppliers'",
-          "items": {
-            "Id": {
-              "type": "string",
-              "description": "Supplier id"
-            },
-            "Quantity": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Quantity of good from supplier"
-            },
-            "Price": {
-              "type": "number",
-              "minimum": 0,
-              "description": "Price per unit"
+        "type": "array",
+        "description": "Subproducts of set or variant",
+        "items": {
+          "Id": {
+            "type": "string",
+            "description": "Product id"
+          },
+          "Suppliers": {
+            "type": "array",
+            "description": "Suppliers of good. Any supplier have specific amount of good. Sets and variants haven't suppliers'",
+            "items": {
+              "Id": {
+                "type": "string",
+                "description": "Supplier id"
+              },
+              "Quantity": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Quantity of good from supplier"
+              },
+              "Price": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Price per unit"
+              }
+            }
+          },
+          "Warehouses": {
+            "type": "array",
+            "description": "Warehouses where good is stored",
+            "items": {
+              "Id": {
+                "type": "string",
+                "description": "Warehouse id"
+              },
+              "Quantity": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Quantity of good stored"
+              },
+              "Price": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Price per unit"
+              }
             }
           }
-        },
-        "Warehouses": {
-          "type": "array",
-          "description": "Warehouses where good is stored",
-          "items": {
-            "Id": {
-              "type": "string",
-              "description": "Warehouse id"
-            },
-            "Quantity": {
-              "type": "integer",
-              "minimum": 0,
-              "description": "Quantity of good stored"
-            },
-            "Price": {
-              "type": "number",
-              "minimum": 0,
-              "description": "Price per unit"
-            }
-          }
-        }
+        } 
       },
       "Warehouses": {
         "type": "array",
