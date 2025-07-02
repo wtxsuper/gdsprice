@@ -22,10 +22,7 @@ try
     Console.ResetColor();
     Console.ReadKey();
 }
-catch (Exception ex)
-{
-    logger.Error(ex);
-}
+catch (Exception ex) { logger.Error(ex); }
 
 async void OnFileCreated(object sender, FileSystemEventArgs e)
 {
@@ -34,10 +31,7 @@ async void OnFileCreated(object sender, FileSystemEventArgs e)
         logger.Debug($"Try processing file: \"{e.Name}\".");
         await ProcessFileAsync(e.FullPath);
     }
-    catch (Exception ex)
-    {
-        logger.Error(ex);
-    }
+    catch (Exception ex) { logger.Error(ex); }
 }
 
 async Task ProcessFileAsync(string path)
@@ -47,13 +41,13 @@ async Task ProcessFileAsync(string path)
     bool isProcessed = false; // is file successfully processed;
     int attempt = 0;
 
+    // max time to read file
+    CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
+
     while (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
     {
         try
         {
-            // max time to read file
-            CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
-
             string schemaJson = await File.ReadAllTextAsync(Settings.SCHEMA_PATH, cts.Token);
             string productsJson = await File.ReadAllTextAsync(path, cts.Token);
 
