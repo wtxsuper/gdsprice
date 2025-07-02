@@ -4,6 +4,7 @@ using NLog;
 using QuantityCalculator;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics.Metrics;
 using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
@@ -32,23 +33,26 @@ try
     Console.ResetColor();
     Console.ReadKey();
 }
-catch (Exception ex)
-{
-    logger.Error(ex);
-}
+catch (Exception ex) { logger.Error(ex); }
 
 async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
 {
-    var body = e.Body.ToArray();
-    // logger.Debug("Received message. Hash: " + body.GetHashCode());
-    var message = Encoding.UTF8.GetString(body);
-    logger.Warn("Received message: " + message);
-    JArray json = JArray.Parse(message);
-    await Task.Run(() => ProcessJsonAsync(json));
+    try
+    {
+        var body = e.Body.ToArray();
+        logger.Debug("Received message. Hash: " + body.GetHashCode());
+        var message = Encoding.UTF8.GetString(body);
+        // logger.Warn("Received message: " + message);
+        await ProcessJsonAsync(message);
+    }
+    catch (Exception ex) { logger.Error(ex); }
 }
 
-void ProcessJsonAsync (JArray json)
+async Task ProcessJsonAsync (string message)
 {
+    JArray json = JArray.Parse(message);
+
+    List<CountedProduct> countedList = new List<CountedProduct>();
     foreach (JObject j in json)
     {
         Product? product = j.ToObject<Product>();
@@ -58,26 +62,33 @@ void ProcessJsonAsync (JArray json)
             throw new ArgumentNullException();
         }
 
-        CountedProduct counted = CountProduct(product);
-        Console.WriteLine();
+        CountedProduct counted = await Task.Run(() => CountProductAsync(product));
+        countedList.Add(counted);
     }
+    string outJson = JsonConvert.SerializeObject(countedList);
+    await SendMessageAsync(outJson);
 }
 
-CountedProduct CountProduct(Product product)
+async Task SendMessageAsync(string message, string name = "")
+{
+    throw new NotImplementedException();
+}
+
+async Task<CountedProduct> CountProductAsync(Product product)
 {
     CountedProduct cp = new CountedProduct(product);
 
     if (cp.Type == "product")
     {
-        cp.WarehouseQuantity = CountAllWarehouse(cp.Warehouses);
-        cp.SupplierQuantity = CountAllSupplier(cp.Suppliers);
+        cp.WarehouseQuantity = await Task.Run(() => CountAllWarehouse(cp.Warehouses));
+        cp.SupplierQuantity = await Task.Run(() => CountAllSupplier(cp.Suppliers));
     }
     else
     {
         int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
         foreach (Product sub in cp.SubProducts)
         {
-            int subWh = CountAllWarehouse(sub.Warehouses);
+            int subWh = await Task.Run(() => CountAllWarehouse(sub.Warehouses));
             if (subWh < minSubWh) {minSubWh = subWh;}
         }
         cp.WarehouseQuantity = minSubWh;
