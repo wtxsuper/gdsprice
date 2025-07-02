@@ -44,10 +44,10 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
     var message = Encoding.UTF8.GetString(body);
     logger.Warn("Received message: " + message);
     JArray json = JArray.Parse(message);
-    await ProcessJsonAsync(json);
+    await Task.Run(() => ProcessJsonAsync(json));
 }
 
-async Task ProcessJsonAsync (JArray json)
+void ProcessJsonAsync (JArray json)
 {
     foreach (JObject j in json)
     {
@@ -58,30 +58,36 @@ async Task ProcessJsonAsync (JArray json)
             throw new ArgumentNullException();
         }
 
-        if (product.Type == "product")
-        {
-            product.WarehouseQuantity = CountInWarehouses(product.Warehouses);
-            product.SupplierQuantity = CountInSuppliers(product.Suppliers);
-            product.Quantity = product.WarehouseQuantity + product.SupplierQuantity;
-        }
-        else
-        {
-            int minSubProductWarehouseCount = int.MaxValue;
-            foreach (Product sub in product.SubProducts)
-            {
-                int i = CountInWarehouses(sub.Warehouses);
-                if (i < minSubProductWarehouseCount) { minSubProductWarehouseCount = i; }
-            }
-
-            product.WarehouseQuantity = minSubProductWarehouseCount;
-            product.SupplierQuantity = 0;
-            product.Quantity = product.WarehouseQuantity + product.SupplierQuantity;
-        }
-        
+        CountedProduct counted = CountProduct(product);
+        Console.WriteLine();
     }
 }
 
-int CountInWarehouses (List<Warehouse> warehouses)
+CountedProduct CountProduct(Product product)
+{
+    CountedProduct cp = new CountedProduct(product);
+
+    if (cp.Type == "product")
+    {
+        cp.WarehouseQuantity = CountAllWarehouse(cp.Warehouses);
+        cp.SupplierQuantity = CountAllSupplier(cp.Suppliers);
+    }
+    else
+    {
+        int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
+        foreach (Product sub in cp.SubProducts)
+        {
+            int subWh = CountAllWarehouse(sub.Warehouses);
+            if (subWh < minSubWh) {minSubWh = subWh;}
+        }
+        cp.WarehouseQuantity = minSubWh;
+        cp.SupplierQuantity = 0;
+    }
+    cp.Quantity = cp.WarehouseQuantity + cp.SupplierQuantity;
+    return cp;
+}
+
+int CountAllWarehouse (List<Warehouse> warehouses)
 {
     int sum = 0;
     foreach (Warehouse w in warehouses)
@@ -91,7 +97,7 @@ int CountInWarehouses (List<Warehouse> warehouses)
     return sum;
 }
 
-int CountInSuppliers (List<Supplier> suppliers)
+int CountAllSupplier (List<Supplier> suppliers)
 {
     int sum = 0;
     foreach (Supplier s in suppliers)
