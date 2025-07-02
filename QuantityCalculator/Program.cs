@@ -52,10 +52,55 @@ async Task ProcessJsonAsync (JArray json)
     foreach (JObject j in json)
     {
         Product? product = j.ToObject<Product>();
+
         if (product == null)
         {
             throw new ArgumentNullException();
         }
+
+        if (product.Type == "product")
+        {
+            product.WarehouseQuantity = CountInWarehouses(product.Warehouses);
+            product.SupplierQuantity = CountInSuppliers(product.Suppliers);
+            product.Quantity = product.WarehouseQuantity + product.SupplierQuantity;
+        }
+        else
+        {
+            int minSubProductWarehouseCount = int.MaxValue;
+            foreach (Product sub in product.SubProducts)
+            {
+                int i = CountInWarehouses(sub.Warehouses);
+                if (i < minSubProductWarehouseCount) { minSubProductWarehouseCount = i; }
+            }
+
+            product.WarehouseQuantity = minSubProductWarehouseCount;
+            product.SupplierQuantity = 0;
+            product.Quantity = product.WarehouseQuantity + product.SupplierQuantity;
+        }
+        
     }
 }
+
+int CountInWarehouses (List<Warehouse> warehouses)
+{
+    int sum = 0;
+    foreach (Warehouse w in warehouses)
+    {
+        sum += w.Quantity;
+    }
+    return sum;
+}
+
+int CountInSuppliers (List<Supplier> suppliers)
+{
+    int sum = 0;
+    foreach (Supplier s in suppliers)
+    {
+        sum += s.Quantity;
+    }
+    return sum;
+}
+
+
+
 

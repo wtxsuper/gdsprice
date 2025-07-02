@@ -13,5 +13,8 @@ namespace QuantityCalculator
         public List<Supplier>? Suppliers { get; set; }
         public List<Product>? SubProducts { get; set; }
         public List<Warehouse>? Warehouses { get; set; }
+        public int? WarehouseQuantity { get; set; }
+        public int? SupplierQuantity { get; set; }
+        public int? Quantity { get; set; }
     }
 }
