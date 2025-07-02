@@ -16,7 +16,7 @@ try
     using var connection = await factory.CreateConnectionAsync();
     using var channel = await connection.CreateChannelAsync();
 
-    await channel.QueueDeclareAsync(queue: Settings.RECEIVE_QUEUE, durable: false, exclusive: false, autoDelete: false,
+    await channel.QueueDeclareAsync(queue: Settings.RECEIVE_QUEUE, durable: true, exclusive: false, autoDelete: false,
         arguments: null);
 
     logger.Debug("Waiting for messages.");
@@ -38,16 +38,16 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
     try
     {
         var body = e.Body.ToArray();
-        logger.Debug("Received message. Hash: " + body.GetHashCode());
-        var message = Encoding.UTF8.GetString(body);
-        await ProcessJsonAsync(message);
+        var messageJson = Encoding.UTF8.GetString(body);
+        var received = JsonConvert.DeserializeObject<Message>(messageJson);
+        await ProcessMessageAsync(received);
     }
     catch (Exception ex) { logger.Error(ex); }
 }
 
-async Task ProcessJsonAsync(string message)
+async Task ProcessMessageAsync(Message message)
 {
-    JArray json = JArray.Parse(message);
+    JArray json = JArray.Parse(message.Content); // products array
 
     List<CountedProduct> countedList = new List<CountedProduct>();
     foreach (JObject j in json)
@@ -63,7 +63,7 @@ async Task ProcessJsonAsync(string message)
         countedList.Add(counted);
     }
     string outJson = JsonConvert.SerializeObject(countedList);
-    await SendMessageAsync(outJson);
+    await SendMessageAsync(outJson, message.FileName);
 }
 
 async Task SendMessageAsync(string json, string filename = "")
