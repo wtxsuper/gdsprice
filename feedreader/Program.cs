@@ -108,7 +108,7 @@ async Task SendMessageAsync(string json, string filename = "")
     CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
     try
     {
-        ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
+        var factory = new ConnectionFactory { HostName = Settings.RABBIT_HOSTNAME };
         using var connection = await factory.CreateConnectionAsync(cts.Token);
         using var channel = await connection.CreateChannelAsync();
 
@@ -136,8 +136,5 @@ async Task SendMessageAsync(string json, string filename = "")
             logger.Debug($"\"{filename}\" sent to broker");
         }
     }
-    catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token)
-    {
-        logger.Error("RabbitMQ connection timeout", ex);
-    }
+    catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); }
 }
