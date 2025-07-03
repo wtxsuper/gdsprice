@@ -7,11 +7,13 @@ using RabbitMQ.Client.Events;
 using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
+var sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
+logger.Debug("Program started.");
 
+
+CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
 try
 {
-    CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
-
     var factory = new ConnectionFactory { HostName = Settings.RABBIT_HOSTNAME };
     using var connection = await factory.CreateConnectionAsync();
     using var channel = await connection.CreateChannelAsync();
@@ -19,18 +21,20 @@ try
     await channel.QueueDeclareAsync(queue: Settings.RECEIVE_QUEUE, durable: true, exclusive: false, autoDelete: false,
         arguments: null);
 
-    logger.Debug("Waiting for messages.");
+    logger.Debug("Ready to receive messages.");
 
     var consumer = new AsyncEventingBasicConsumer(channel);
     consumer.ReceivedAsync += OnReceivedAsync;
 
     await channel.BasicConsumeAsync(Settings.RECEIVE_QUEUE, autoAck: true, consumer: consumer);
 
+    Console.WriteLine("Started listening for messages...");
     Console.BackgroundColor = ConsoleColor.Green;
     Console.WriteLine("> Press any key to exit.");
     Console.ResetColor();
     Console.ReadKey();
 }
+catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); } 
 catch (Exception ex) { logger.Error(ex); }
 
 async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
@@ -40,108 +44,80 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
         var body = e.Body.ToArray();
         var messageJson = Encoding.UTF8.GetString(body);
         var received = JsonConvert.DeserializeObject<Message>(messageJson);
-        await ProcessMessageAsync(received);
+        if (received != null)
+        {
+            await ProcessMessageAsync(received);
+        }
+        else
+        {
+            throw new ArgumentNullException(nameof(received), "Message deserialization failed.");
+        }
     }
     catch (Exception ex) { logger.Error(ex); }
 }
 
 async Task ProcessMessageAsync(Message message)
 {
-    JArray json = JArray.Parse(message.Content); // products array
-
-    List<CountedProduct> countedList = new List<CountedProduct>();
-    foreach (JObject j in json)
+    await sem.WaitAsync(); // wait for semaphore to allow concurrent processing
+    try
     {
-        Product? product = j.ToObject<Product>();
+        JArray json = JArray.Parse(message.Content); // products array
 
-        if (product == null)
+        List<CountedProduct> countedList = new List<CountedProduct>();
+        foreach (JObject j in json)
         {
-            throw new ArgumentNullException();
+            Product? product = j.ToObject<Product>();
+            if (product != null)
+            {
+                CountedProduct counted = new CountedProduct(product);
+                countedList.Add(counted);
+            }
+            else
+            {
+                throw new ArgumentNullException(nameof(product), "Product deserialization failed.");
+            }
         }
-
-        CountedProduct counted = await Task.Run(() => CountProductAsync(product));
-        countedList.Add(counted);
+        string outJson = JsonConvert.SerializeObject(countedList);
+        await SendMessageAsync(outJson, message.FileName);
     }
-    string outJson = JsonConvert.SerializeObject(countedList);
-    await SendMessageAsync(outJson, message.FileName);
+    finally { sem.Release(); }
 }
 
 async Task SendMessageAsync(string json, string filename = "")
 {
     // Connection time limit
     CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
-
-    ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
-    using var connection = await factory.CreateConnectionAsync(cts.Token);
-    using var channel = await connection.CreateChannelAsync();
-
-    await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
-        arguments: null);
-
-    var message = new
+    try
     {
-        FileName = filename,
-        Content = json,
-        Timestamp = DateTime.UtcNow
-    };
+        var factory = new ConnectionFactory { HostName = Settings.RABBIT_HOSTNAME };
+        using var connection = await factory.CreateConnectionAsync(cts.Token);
+        using var channel = await connection.CreateChannelAsync();
 
-    string messageJson = JsonConvert.SerializeObject(message);
-    byte[] body = Encoding.UTF8.GetBytes(messageJson);
+        await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
+            arguments: null);
 
-    await channel.BasicPublishAsync(exchange: string.Empty, routingKey: Settings.SEND_QUEUE, body: body);
-
-    if (string.IsNullOrEmpty(filename))
-    {
-        logger.Debug("Message sent to broker");
-    }
-    else
-    {
-        logger.Debug($"\"{filename}\" sent to broker");
-    }
-}
-
-async Task<CountedProduct> CountProductAsync(Product product)
-{
-    CountedProduct cp = new CountedProduct(product);
-
-    if (cp.Type == "product")
-    {
-        cp.WarehouseQuantity = await Task.Run(() => CountAllWarehouse(cp.Warehouses));
-        cp.SupplierQuantity = await Task.Run(() => CountAllSupplier(cp.Suppliers));
-    }
-    else
-    {
-        int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
-        foreach (Product sub in cp.SubProducts)
+        var message = new
         {
-            int subWh = await Task.Run(() => CountAllWarehouse(sub.Warehouses));
-            if (subWh < minSubWh) { minSubWh = subWh; }
+            FileName = filename,
+            Content = json,
+            Timestamp = DateTime.UtcNow
+        };
+
+        string messageJson = JsonConvert.SerializeObject(message);
+        byte[] body = Encoding.UTF8.GetBytes(messageJson);
+
+        await channel.BasicPublishAsync(exchange: string.Empty, routingKey: Settings.SEND_QUEUE, body: body);
+
+        if (string.IsNullOrEmpty(filename))
+        {
+            logger.Debug("Message sent to broker");
         }
-        cp.WarehouseQuantity = minSubWh;
-        cp.SupplierQuantity = 0;
+        else
+        {
+            logger.Debug($"\"{filename}\" sent to broker");
+        }
     }
-    cp.Quantity = cp.WarehouseQuantity + cp.SupplierQuantity;
-    return cp;
-}
-
-int CountAllWarehouse(List<Warehouse> warehouses)
-{
-    int sum = 0;
-    foreach (Warehouse w in warehouses)
-    {
-        sum += w.Quantity;
-    }
-    return sum;
-}
-
-int CountAllSupplier(List<Supplier> suppliers)
-{
-    int sum = 0;
-    foreach (Supplier s in suppliers)
-    {
-        sum += s.Quantity;
-    }
-    return sum;
+    catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); }
 }
 
 

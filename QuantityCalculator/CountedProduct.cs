@@ -13,9 +13,44 @@
             SubProducts = product.SubProducts;
             Suppliers = product.Suppliers;
             Warehouses = product.Warehouses;
-            WarehouseQuantity = 0;
-            SupplierQuantity = 0;
-            Quantity = 0;
+            WarehouseQuantity = CountAllWarehouse(product);
+            SupplierQuantity = CountAllSupplier(product);
+            Quantity = WarehouseQuantity + SupplierQuantity;
+        }
+
+        private int CountAllWarehouse(Product product)
+        {
+            int sum = 0;
+            if (product.Type == "product" && product.Warehouses != null)
+            {
+                foreach (Warehouse w in product.Warehouses)
+                {
+                    sum += w.Quantity;
+                }
+            }
+            else if (product.SubProducts != null)
+            {
+                int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
+                foreach (Product sub in product.SubProducts)
+                {
+                    minSubWh = Math.Min(minSubWh, CountAllWarehouse(sub));
+                }
+                sum = minSubWh;
+            }
+            return sum;
+        }
+
+        private int CountAllSupplier(Product product)
+        {
+            int sum = 0;
+            if (product.Type == "product" && product.Suppliers != null)
+            {
+                foreach (Supplier s in product.Suppliers)
+                {
+                    sum += s.Quantity;
+                }
+            }
+            return sum;
         }
     }
 }
