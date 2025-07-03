@@ -8,6 +8,7 @@ using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
 SemaphoreSlim sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
+logger.Debug("Program started.");
 
 try
 {
@@ -19,10 +20,12 @@ try
     watcher.EnableRaisingEvents = true; // start monitroring
     logger.Debug($"Watch files in \"{Settings.DIRECTORY_PATH}\"");
 
+    Console.WriteLine($"Working directory: \"{Settings.DIRECTORY_PATH}\"");
     Console.BackgroundColor = ConsoleColor.Green;
     Console.WriteLine("> Press any key to exit.");
     Console.ResetColor();
     Console.ReadKey();
+    logger.Debug("Program terminated by user input.");
 }
 catch (Exception ex) { logger.Error(ex); }
 
@@ -103,32 +106,38 @@ async Task SendMessageAsync(string json, string filename = "")
 {
     // Connection time limit
     CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
-
-    ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
-    using var connection = await factory.CreateConnectionAsync(cts.Token);
-    using var channel = await connection.CreateChannelAsync();
-
-    await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
-        arguments: null);
-
-    var message = new
+    try
     {
-        FileName = filename,
-        Content = json,
-        Timestamp = DateTime.UtcNow
-    };
+        ConnectionFactory factory = new() { HostName = Settings.RABBIT_HOSTNAME };
+        using var connection = await factory.CreateConnectionAsync(cts.Token);
+        using var channel = await connection.CreateChannelAsync();
 
-    string messageJson = JsonConvert.SerializeObject(message);
-    byte[] body = Encoding.UTF8.GetBytes(messageJson);
+        await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
+            arguments: null);
 
-    await channel.BasicPublishAsync(exchange: string.Empty, routingKey: Settings.SEND_QUEUE, body: body);
+        var message = new
+        {
+            FileName = filename,
+            Content = json,
+            Timestamp = DateTime.UtcNow
+        };
 
-    if (string.IsNullOrEmpty(filename))
-    {
-        logger.Debug("Message sent to broker");
+        string messageJson = JsonConvert.SerializeObject(message);
+        byte[] body = Encoding.UTF8.GetBytes(messageJson);
+
+        await channel.BasicPublishAsync(exchange: string.Empty, routingKey: Settings.SEND_QUEUE, body: body);
+
+        if (string.IsNullOrEmpty(filename))
+        {
+            logger.Debug("Message sent to broker");
+        }
+        else
+        {
+            logger.Debug($"\"{filename}\" sent to broker");
+        }
     }
-    else
+    catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token)
     {
-        logger.Debug($"\"{filename}\" sent to broker");
+        logger.Error("RabbitMQ connection timeout", ex);
     }
 }
