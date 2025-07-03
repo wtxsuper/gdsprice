@@ -8,7 +8,7 @@ using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
 SemaphoreSlim sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
-logger.Debug("Program started.");
+logger.Info("Program started.");
 
 try
 {
@@ -25,7 +25,7 @@ try
     Console.WriteLine("> Press any key to exit.");
     Console.ResetColor();
     Console.ReadKey();
-    logger.Debug("Program terminated by user input.");
+    logger.Info("Program terminated by user input.");
 }
 catch (Exception ex) { logger.Error(ex); }
 

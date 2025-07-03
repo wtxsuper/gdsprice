@@ -8,7 +8,7 @@ using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
 var sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
-logger.Debug("Program started.");
+logger.Info("Program started.");
 
 
 CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.CONNECTION_TIMEOUT_SECONDS));
@@ -33,6 +33,7 @@ try
     Console.WriteLine("> Press any key to exit.");
     Console.ResetColor();
     Console.ReadKey();
+    logger.Info("Program terminated by user input.");
 }
 catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); }
 catch (Exception ex) { logger.Error(ex); }
