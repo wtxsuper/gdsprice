@@ -9,5 +9,6 @@
         public const int CONNECTION_TIMEOUT_SECONDS = 10;
         public const int READ_FILE_TIMEOUT_SECONDS = 120;
         public const string SEND_QUEUE = "toQuantity";
+        public const int MAX_CONCURRENT = 4;
     }
 }

@@ -7,12 +7,14 @@ using RabbitMQ.Client;
 using System.Text;
 
 Logger logger = LogManager.GetCurrentClassLogger();
+SemaphoreSlim sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
 
 try
 {
     using FileSystemWatcher watcher = new(Settings.DIRECTORY_PATH);
     watcher.Filter = "*.json";
     watcher.Created += OnFileCreated;
+    watcher.Error += OnWatcherError;
 
     watcher.EnableRaisingEvents = true;
     logger.Debug($"Watch files in \"{Settings.DIRECTORY_PATH}\"");
@@ -23,6 +25,11 @@ try
     Console.ReadKey();
 }
 catch (Exception ex) { logger.Error(ex); }
+
+void OnWatcherError(object sender, ErrorEventArgs e)
+{
+    logger.Error(e);
+}
 
 async void OnFileCreated(object sender, FileSystemEventArgs e)
 {
@@ -36,55 +43,60 @@ async void OnFileCreated(object sender, FileSystemEventArgs e)
 
 async Task ProcessFileAsync(string path)
 {
-    string filename = Path.GetFileName(path);
-
-    bool isProcessed = false; // is file successfully processed;
-    int attempt = 0;
-
-    // max time to read file
-    CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
-
-    while (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
+    await sem.WaitAsync();
+    try
     {
-        try
+        string filename = Path.GetFileName(path);
+
+        bool isProcessed = false; // is file successfully processed;
+        int attempt = 0;
+
+        // max time to read file
+        CancellationTokenSource cts = new(TimeSpan.FromSeconds(Settings.READ_FILE_TIMEOUT_SECONDS));
+
+        while (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
         {
-            string schemaJson = await File.ReadAllTextAsync(Settings.SCHEMA_PATH, cts.Token);
-            string productsJson = await File.ReadAllTextAsync(path, cts.Token);
-
-
-            JSchema schema = JSchema.Parse(schemaJson);
-            JArray products = JArray.Parse(productsJson);
-
-            bool isValid = products.IsValid(schema, out IList<string> errors);
-
-            if (isValid)
+            try
             {
-                isProcessed = true;
-                logger.Debug($"Is valid: \"{filename}\".");
-                await SendMessageAsync(productsJson, filename);
+                string schemaJson = await File.ReadAllTextAsync(Settings.SCHEMA_PATH, cts.Token);
+                string productsJson = await File.ReadAllTextAsync(path, cts.Token);
+
+
+                JSchema schema = JSchema.Parse(schemaJson);
+                JArray products = JArray.Parse(productsJson);
+
+                bool isValid = products.IsValid(schema, out IList<string> errors);
+
+                if (isValid)
+                {
+                    isProcessed = true;
+                    logger.Debug($"Is valid: \"{filename}\".");
+                    await SendMessageAsync(productsJson, filename);
+                }
+                else
+                {
+                    isProcessed = true;
+                    logger.Debug($"Not valid: \"{filename}\".\nSchema validation errors: \n" + string.Join('\n', errors));
+                }
             }
-            else
+            catch (IOException)
             {
-                isProcessed = true;
-                logger.Debug($"Not valid: \"{filename}\".\nSchema validation errors: \n" + string.Join('\n', errors));
-            }
-        }
-        catch (IOException)
-        {
-            if (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
-            {
-                attempt++;
-                logger.Warn($"Can't open file \"{filename}\". Try again... ({attempt})");
+                if (!isProcessed && attempt < Settings.MAX_ATTEMPTS)
+                {
+                    attempt++;
+                    logger.Warn($"Can't open file \"{filename}\". Try again... ({attempt})");
 
-                // Wait or file process can be blocked
-                await Task.Delay(500);
-            }
-            else
-            {
-                throw;
+                    // Wait or file process can be blocked
+                    await Task.Delay(500);
+                }
+                else
+                {
+                    throw;
+                }
             }
         }
     }
+    finally { sem.Release() ; }
 }
 
 async Task SendMessageAsync(string json, string filename = "")
