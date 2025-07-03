@@ -34,7 +34,7 @@ try
     Console.ResetColor();
     Console.ReadKey();
 }
-catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); } 
+catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); }
 catch (Exception ex) { logger.Error(ex); }
 
 async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
