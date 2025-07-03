@@ -13,10 +13,10 @@ try
 {
     using FileSystemWatcher watcher = new(Settings.DIRECTORY_PATH);
     watcher.Filter = "*.json";
-    watcher.Created += OnFileCreated;
     watcher.Error += OnWatcherError;
+    watcher.Created += OnFileCreated;
 
-    watcher.EnableRaisingEvents = true;
+    watcher.EnableRaisingEvents = true; // start monitroring
     logger.Debug($"Watch files in \"{Settings.DIRECTORY_PATH}\"");
 
     Console.BackgroundColor = ConsoleColor.Green;
@@ -35,18 +35,18 @@ async void OnFileCreated(object sender, FileSystemEventArgs e)
 {
     try
     {
-        logger.Debug($"Try processing file: \"{e.Name}\".");
-        await ProcessFileAsync(e.FullPath);
+        logger.Debug($"Found file: \"{e.Name}\".");
+        await ProcessFileAsync(e.FullPath, e.Name);
     }
     catch (Exception ex) { logger.Error(ex); }
 }
 
-async Task ProcessFileAsync(string path)
+async Task ProcessFileAsync(string path, string? filename)
 {
     await sem.WaitAsync();
     try
     {
-        string filename = Path.GetFileName(path);
+        filename ??= "";
 
         bool isProcessed = false; // is file successfully processed;
         int attempt = 0;
