@@ -99,7 +99,7 @@ async Task ProcessFileAsync(string path, string? filename)
             }
         }
     }
-    finally { sem.Release() ; }
+    finally { sem.Release(); }
 }
 
 async Task SendMessageAsync(string json, string filename = "")
