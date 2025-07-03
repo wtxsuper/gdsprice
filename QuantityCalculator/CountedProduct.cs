@@ -21,14 +21,8 @@
         private int CountAllWarehouse(Product product)
         {
             int sum = 0;
-            if (product.Type == "product" && product.Warehouses != null)
-            {
-                foreach (Warehouse w in product.Warehouses)
-                {
-                    sum += w.Quantity;
-                }
-            }
-            else if (product.SubProducts != null)
+            // for sets or variants, we need to count the minimum quantity in warehouses from subproducts
+            if (product.Type != "product" && product.SubProducts != null)
             {
                 int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
                 foreach (Product sub in product.SubProducts)
@@ -36,6 +30,14 @@
                     minSubWh = Math.Min(minSubWh, CountAllWarehouse(sub));
                 }
                 sum = minSubWh;
+            }
+            // for simple products and subproducts, we count the total quantity in warehouses
+            else if (product.Warehouses != null)
+            {
+                foreach (Warehouse w in product.Warehouses)
+                {
+                    sum += w.Quantity;
+                }
             }
             return sum;
         }
