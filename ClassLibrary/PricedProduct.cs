@@ -17,7 +17,7 @@
             else if (Type == "set" && SubProducts != null && SubProducts.Count > 0)
             {
                 whPrice = SubProducts.Sum(sp => sp.Warehouses?.Average(w => w.Price) ?? 0);
-            }   
+            }
             else if (Type == "variant" && SubProducts != null && SubProducts.Count > 0)
             {
                 whPrice = SubProducts.Min(sp => sp.Warehouses?.Average(w => w.Price) ?? 0);
@@ -26,7 +26,7 @@
             // Calculate supplier price
             if (Type == "product" && Suppliers != null && Suppliers.Count > 0)
             {
-                supPrice = Suppliers.Min(s => s.Price);            
+                supPrice = Suppliers.Min(s => s.Price);
             }
 
             // Determine minimum price

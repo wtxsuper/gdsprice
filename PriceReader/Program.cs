@@ -48,6 +48,7 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
         var received = JsonConvert.DeserializeObject<Message>(messageJson);
         if (received != null)
         {
+            logger.Debug($"Received message: {received.FileName}");
             await ProcessMessageAsync(received);
         }
         else
@@ -80,7 +81,9 @@ async Task ProcessMessageAsync(Message message)
             }
         }
         string resultJson = JsonConvert.SerializeObject(pricedList);
-        // TODO SAVE TO FILE
+        string resultFilename = Path.Combine(Settings.DIRECTORY_PATH, $"c_{message.FileName}");
+        await File.WriteAllTextAsync(resultFilename, resultJson);
+        logger.Debug($"Wrote result to file \"{resultFilename}\"");
     }
     finally { sem.Release(); }
 }

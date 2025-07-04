@@ -48,6 +48,7 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
         var received = JsonConvert.DeserializeObject<Message>(messageJson);
         if (received != null)
         {
+            logger.Debug($"Received message: {received.FileName}");
             await ProcessMessageAsync(received);
         }
         else
