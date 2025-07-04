@@ -1,4 +1,4 @@
-﻿namespace QuantityCalculator;
+﻿namespace PriceCalculator;
 
 public static class Settings
 {

@@ -2,7 +2,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
-using QuantityCalculator;
+using PriceCalculator;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using System.Text;

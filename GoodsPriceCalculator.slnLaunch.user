@@ -11,7 +11,7 @@
         "Action": "Start"
       },
       {
-        "Path": "PriceReader\\PriceReader.csproj",
+        "Path": "PriceCalculator\\PriceCalculator.csproj",
         "Action": "Start"
       }
     ]
