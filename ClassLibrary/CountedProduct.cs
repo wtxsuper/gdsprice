@@ -13,50 +13,33 @@
             SubProducts = product.SubProducts;
             Suppliers = product.Suppliers;
             Warehouses = product.Warehouses;
-            WarehouseQuantity = CountAllWarehouse(product);
-            SupplierQuantity = CountAllSupplier(product);
-            Quantity = WarehouseQuantity + SupplierQuantity;
+
+            int whQty = 0;
+            int supQty = 0;
+
+            // Calculate warehouse quantity
+            if (Type == "product" && Warehouses != null && Warehouses.Count > 0)
+            {
+                whQty = Warehouses.Sum(w => w.Quantity);
+            }
+            else if (SubProducts != null && SubProducts.Count > 0)
+            {
+                whQty = SubProducts.Min(sp => sp.Warehouses?.Sum(w => w.Quantity) ?? 0);
+            }
+
+            // Calculate supplier quantity
+            if (Type == "product" && Suppliers != null && Suppliers.Count > 0)
+            {
+                supQty = Suppliers.Sum(s => s.Quantity);
+            }
+
+            WarehouseQuantity = whQty;
+            SupplierQuantity = supQty;
+            Quantity = whQty + supQty;
         }
+
         public CountedProduct()
         {
-            
-        }
-
-        private int CountAllWarehouse(Product product)
-        {
-            int sum = 0;
-            // for sets or variants, we need to count the minimum quantity in warehouses from subproducts
-            if (product.Type != "product" && product.SubProducts != null)
-            {
-                int minSubWh = int.MaxValue; // minimum quantity in warehouses from subproducts for sets or variants
-                foreach (Product sub in product.SubProducts)
-                {
-                    minSubWh = Math.Min(minSubWh, CountAllWarehouse(sub));
-                }
-                sum = minSubWh;
-            }
-            // for simple products and subproducts, we count the total quantity in warehouses
-            else if (product.Warehouses != null)
-            {
-                foreach (Warehouse w in product.Warehouses)
-                {
-                    sum += w.Quantity;
-                }
-            }
-            return sum;
-        }
-
-        private int CountAllSupplier(Product product)
-        {
-            int sum = 0;
-            if (product.Type == "product" && product.Suppliers != null)
-            {
-                foreach (Supplier s in product.Suppliers)
-                {
-                    sum += s.Quantity;
-                }
-            }
-            return sum;
         }
     }
 }
