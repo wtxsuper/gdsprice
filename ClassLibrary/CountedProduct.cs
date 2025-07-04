@@ -17,6 +17,10 @@
             SupplierQuantity = CountAllSupplier(product);
             Quantity = WarehouseQuantity + SupplierQuantity;
         }
+        public CountedProduct()
+        {
+            
+        }
 
         private int CountAllWarehouse(Product product)
         {

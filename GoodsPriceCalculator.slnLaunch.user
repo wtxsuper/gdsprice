@@ -1,6 +1,6 @@
 [
   {
-    "Name": "Запуск одновременно без отладки",
+    "Name": "All",
     "Projects": [
       {
         "Path": "feedreader\\FeedReader.csproj",
@@ -8,6 +8,10 @@
       },
       {
         "Path": "QuantityCalculator\\QuantityCalculator.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "PriceReader\\PriceReader.csproj",
         "Action": "Start"
       }
     ]
