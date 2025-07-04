@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using ClassLibrary;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
 using QuantityCalculator;
@@ -78,8 +79,8 @@ async Task ProcessMessageAsync(Message message)
                 throw new ArgumentNullException(nameof(product), "Product deserialization failed.");
             }
         }
-        string outJson = JsonConvert.SerializeObject(countedList);
-        await SendMessageAsync(outJson, message.FileName);
+        string resultJson = JsonConvert.SerializeObject(countedList);
+        await SendMessageAsync(resultJson, message.FileName);
     }
     finally { sem.Release(); }
 }
@@ -97,12 +98,7 @@ async Task SendMessageAsync(string json, string filename = "")
         await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
             arguments: null);
 
-        var message = new
-        {
-            FileName = filename,
-            Content = json,
-            Timestamp = DateTime.UtcNow
-        };
+        var message = new Message(filename: filename, content: json, timestamp: DateTime.UtcNow);
 
         string messageJson = JsonConvert.SerializeObject(message);
         byte[] body = Encoding.UTF8.GetBytes(messageJson);
@@ -120,7 +116,3 @@ async Task SendMessageAsync(string json, string filename = "")
     }
     catch (OperationCanceledException ex) when (ex.CancellationToken == cts.Token) { logger.Error("RabbitMQ connection timeout", ex); }
 }
-
-
-
-

@@ -1,4 +1,5 @@
-﻿using FeedReader;
+﻿using ClassLibrary;
+using FeedReader;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
@@ -115,12 +116,7 @@ async Task SendMessageAsync(string json, string filename = "")
         await channel.QueueDeclareAsync(queue: Settings.SEND_QUEUE, durable: true, exclusive: false, autoDelete: false,
             arguments: null);
 
-        var message = new
-        {
-            FileName = filename,
-            Content = json,
-            Timestamp = DateTime.UtcNow
-        };
+        var message = new Message(filename: filename, content: json, timestamp: DateTime.UtcNow);
 
         string messageJson = JsonConvert.SerializeObject(message);
         byte[] body = Encoding.UTF8.GetBytes(messageJson);

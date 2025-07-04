@@ -1,6 +1,6 @@
-﻿namespace QuantityCalculator
+﻿namespace ClassLibrary
 {
-    internal class CountedProduct : Product
+    public class CountedProduct : Product
     {
         public int WarehouseQuantity { get; set; }
         public int SupplierQuantity { get; set; }

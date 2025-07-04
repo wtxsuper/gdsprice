@@ -1,6 +1,6 @@
-﻿namespace QuantityCalculator
+﻿namespace ClassLibrary
 {
-    internal class Supplier
+    public class Warehouse
     {
         public required string Id { get; set; }
 
