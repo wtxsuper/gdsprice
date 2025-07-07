@@ -16,7 +16,7 @@
             }
             else if (Type == "set" && SubProducts != null && SubProducts.Count > 0)
             {
-                whPrice = SubProducts.Sum(sp => sp.Warehouses?.Average(w => w.Price) ?? 0);
+                whPrice = SubProducts.Sum(sp => sp.Warehouses?.Average(w => w.Price * w.Quantity) ?? 0);
             }
             else if (Type == "variant" && SubProducts != null && SubProducts.Count > 0)
             {
