@@ -2,10 +2,23 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using PriceCalculator;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text;
+
+Meter meter = new("PriceCalculator.Metrics", "1.0");
+using var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .AddMeter("PriceCalculator.Metrics")
+            .AddConsoleExporter()
+            .Build();
+
+Counter<long> calculationStarted = meter.CreateCounter<long>("price_calculation_started_total", "count", "Number of price calculations started");
+Histogram<double> calculationDuration = meter.CreateHistogram<double>("price_calculation_duration_seconds", "seconds", "Duration of price calculation");
 
 Logger logger = LogManager.GetCurrentClassLogger();
 var sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
@@ -62,6 +75,10 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
 async Task ProcessMessageAsync(Message message)
 {
     await sem.WaitAsync(); // wait for semaphore to allow concurrent processing
+
+    var stopwatch = Stopwatch.StartNew();
+    calculationStarted.Add(1);
+
     try
     {
         JArray json = JArray.Parse(message.Content); // products array
@@ -86,4 +103,8 @@ async Task ProcessMessageAsync(Message message)
         logger.Debug($"Wrote result to file \"{resultFilename}\"");
     }
     finally { sem.Release(); }
+
+    stopwatch.Stop();
+    var duration = stopwatch.Elapsed.TotalSeconds;
+    calculationDuration.Record(duration);
 }

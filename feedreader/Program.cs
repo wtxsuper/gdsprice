@@ -17,8 +17,8 @@ using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddConsoleExporter()
             .Build();
 
-Counter<long> processingStarted = meter.CreateCounter<long>("processing_started_total", "count", "Number of file processings started");
-Histogram<double> processingDuration = meter.CreateHistogram<double>("processing_duration_seconds", "seconds", "Duration of file processing");
+Counter<long> processingStarted = meter.CreateCounter<long>("file_processing_started_total", "count", "Number of file processings started");
+Histogram<double> processingDuration = meter.CreateHistogram<double>("file_processing_duration_seconds", "seconds", "Duration of file processing");
 
 Logger logger = LogManager.GetCurrentClassLogger();
 SemaphoreSlim sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
