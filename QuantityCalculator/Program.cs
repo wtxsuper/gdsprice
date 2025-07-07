@@ -14,7 +14,7 @@ using System.Text;
 Meter meter = new("QuantityCalculator.Metrics", "1.0");
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("QuantityCalculator.Metrics")
-            .AddConsoleExporter()
+            .AddOtlpExporter()
             .Build();
 
 Counter<long> calculationStarted = meter.CreateCounter<long>("quantity_calculation_started_total", "count", "Number of quantity calculations started");

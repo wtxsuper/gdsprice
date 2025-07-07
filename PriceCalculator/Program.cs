@@ -14,7 +14,7 @@ using System.Text;
 Meter meter = new("PriceCalculator.Metrics", "1.0");
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("PriceCalculator.Metrics")
-            .AddConsoleExporter()
+            .AddOtlpExporter()
             .Build();
 
 Counter<long> calculationStarted = meter.CreateCounter<long>("price_calculation_started_total", "count", "Number of price calculations started");
