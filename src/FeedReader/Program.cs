@@ -14,7 +14,10 @@ using System.Text;
 Meter meter = new("FeedReader.Metrics", "1.0");
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("FeedReader.Metrics")
-            .AddOtlpExporter()
+            .AddOtlpExporter(options =>
+            {
+                options.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
+            })
             .Build();
 
 Counter<long> processingStarted = meter.CreateCounter<long>("file_processing_started_total", "count", "Number of file processings started");
