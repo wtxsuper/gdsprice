@@ -10,6 +10,7 @@ exporters:
     verbosity: detailed
   prometheus:
     endpoint: 0.0.0.0:8889
+    send_timestamps: true
 service:
   pipelines:
     metrics:

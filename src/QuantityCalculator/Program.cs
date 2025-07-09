@@ -14,6 +14,10 @@ using System.Text;
 Meter meter = new("QuantityCalculator.Metrics", "1.0");
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("QuantityCalculator.Metrics")
+            .AddView("quantity_calculation_duration_seconds", new ExplicitBucketHistogramConfiguration
+            {
+                Boundaries = new double[] { 1, 2.5, 5, 10 } // Buckets for histogram
+            })
             .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
             {
                 exporterOptions.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
