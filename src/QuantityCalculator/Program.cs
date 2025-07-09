@@ -14,9 +14,10 @@ using System.Text;
 Meter meter = new("QuantityCalculator.Metrics", "1.0");
 using var meterProvider = Sdk.CreateMeterProviderBuilder()
             .AddMeter("QuantityCalculator.Metrics")
-            .AddOtlpExporter(options =>
+            .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
             {
-                options.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
+                exporterOptions.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
+                metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = Settings.IS_DEBUG ? 1000 : 60000; // 1 second for debug, 60 seconds for production
             })
             .Build();
 
