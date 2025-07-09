@@ -4,8 +4,29 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
 using NLog;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using RabbitMQ.Client;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text;
+
+Meter meter = new("FeedReader.Metrics", "1.0");
+using var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .AddMeter("FeedReader.Metrics")
+            .AddView("file_processing_duration_seconds", new ExplicitBucketHistogramConfiguration
+            {
+                Boundaries = new double[] { 1, 2.5, 5, 10 } // Buckets for histogram
+            })
+            .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
+            {
+                exporterOptions.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
+                metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = Settings.IS_DEBUG ? 1000 : 60000; // 1 second for debug, 60 seconds for production
+            })
+            .Build();
+
+Counter<long> processingStarted = meter.CreateCounter<long>("file_processing_started_total", "count", "Number of file processings started");
+Histogram<double> processingDuration = meter.CreateHistogram<double>("file_processing_duration_seconds", "seconds", "Duration of file processing");
 
 Logger logger = LogManager.GetCurrentClassLogger();
 SemaphoreSlim sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
@@ -48,6 +69,10 @@ async void OnFileCreated(object sender, FileSystemEventArgs e)
 async Task ProcessFileAsync(string path, string? filename)
 {
     await sem.WaitAsync();
+
+    var stopwatch = Stopwatch.StartNew();
+    processingStarted.Add(1);
+
     try
     {
         filename ??= "";
@@ -101,6 +126,10 @@ async Task ProcessFileAsync(string path, string? filename)
         }
     }
     finally { sem.Release(); }
+
+    stopwatch.Stop();
+    var duration = stopwatch.Elapsed.TotalSeconds;
+    processingDuration.Record(duration);
 }
 
 async Task SendMessageAsync(string json, string filename = "")

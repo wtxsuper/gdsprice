@@ -2,10 +2,31 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
+using OpenTelemetry;
+using OpenTelemetry.Metrics;
 using QuantityCalculator;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text;
+
+Meter meter = new("QuantityCalculator.Metrics", "1.0");
+using var meterProvider = Sdk.CreateMeterProviderBuilder()
+            .AddMeter("QuantityCalculator.Metrics")
+            .AddView("quantity_calculation_duration_seconds", new ExplicitBucketHistogramConfiguration
+            {
+                Boundaries = new double[] { 1, 2.5, 5, 10 } // Buckets for histogram
+            })
+            .AddOtlpExporter((exporterOptions, metricReaderOptions) =>
+            {
+                exporterOptions.ExportProcessorType = Settings.IS_DEBUG ? ExportProcessorType.Simple : ExportProcessorType.Batch;
+                metricReaderOptions.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = Settings.IS_DEBUG ? 1000 : 60000; // 1 second for debug, 60 seconds for production
+            })
+            .Build();
+
+Counter<long> calculationStarted = meter.CreateCounter<long>("quantity_calculation_started_total", "count", "Number of quantity calculations started");
+Histogram<double> calculationDuration = meter.CreateHistogram<double>("quantity_calculation_duration_seconds", "seconds", "Duration of quantity calculation");
 
 Logger logger = LogManager.GetCurrentClassLogger();
 var sem = new SemaphoreSlim(Settings.MAX_CONCURRENT);
@@ -62,6 +83,10 @@ async Task OnReceivedAsync(object sender, BasicDeliverEventArgs e)
 async Task ProcessMessageAsync(Message message)
 {
     await sem.WaitAsync(); // wait for semaphore to allow concurrent processing
+
+    var stopwatch = Stopwatch.StartNew();
+    calculationStarted.Add(1);
+
     try
     {
         JArray json = JArray.Parse(message.Content); // products array
@@ -84,6 +109,10 @@ async Task ProcessMessageAsync(Message message)
         await SendMessageAsync(resultJson, message.FileName);
     }
     finally { sem.Release(); }
+
+    stopwatch.Stop();
+    var duration = stopwatch.Elapsed.TotalSeconds;
+    calculationDuration.Record(duration);
 }
 
 async Task SendMessageAsync(string json, string filename = "")

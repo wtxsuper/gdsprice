@@ -8,4 +8,6 @@ public static class Settings
     public const string SEND_QUEUE = "toPrice";
 
     public const int MAX_CONCURRENT = 4; // max concurrent processing
+
+    public const bool IS_DEBUG = true; // debug mode
 }
